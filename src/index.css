@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #D4AF37; /* Gold/Amber from the food and accents */
+  --color-primary-foreground: #000000;
+  --color-secondary: #E63946; /* Red accent from "COMBO MEALS", "BEVERAGES" */
+  --color-secondary-foreground: #ffffff;
+  
+  --color-background: #0a0a0a; /* Very dark background, almost black like the menus */
+  --color-foreground: #f8f9fa; /* Off-white text */
+  
+  --color-card: #141414; /* Slightly lighter than background for cards */
+  --color-card-foreground: #f8f9fa;
+  
+  --color-muted: #1f1f1f;
+  --color-muted-foreground: #9ca3af;
+  
+  --color-accent: #1f1f1f;
+  --color-accent-foreground: #f8f9fa;
+  
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  
+  --color-border: #27272a;
+  --color-input: #27272a;
+  --color-ring: #D4AF37;
+  
+  --radius: 0.75rem;
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 4%;
+    --foreground: 210 40% 98%;
+
+    --card: 0 0% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 0 0% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 43 65% 52%; /* Gold */
+    --primary-foreground: 0 0% 0%;
+
+    --secondary: 355 78% 56%; /* Red */
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 0 0% 12%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 0 0% 12%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    --ring: 43 65% 52%;
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "rlig" 1, "calt" 1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+}
+
+/* Custom scrollbar for premium feel */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--background); 
+}
+::-webkit-scrollbar-thumb {
+  background: var(--muted); 
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border); 
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+  #printable-receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm; /* Standard thermal printer width */
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: none;
+    background: white;
+    color: black;
+  }
+  
+  /* Hide specific elements within the receipt that shouldn't print (like buttons) */
+  #printable-receipt .no-print {
+    display: none !important;
+  }
+  
+  /* Force colors for printing to avoid dark mode issues */
+  #printable-receipt {
+    color: black !important;
+  }
+  #printable-receipt .text-muted-foreground {
+    color: #555 !important;
+  }
+}
+
