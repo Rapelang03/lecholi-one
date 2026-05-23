@@ -6,6 +6,13 @@ import { LogOut, UserCircle, Bell } from 'lucide-react';
 export const Layout = () => {
   const { currentRole, setCurrentRole, activeCustomerId, setActiveCustomerId, supporters, tables } = useStore();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  React.useEffect(() => {
+    if (!currentRole && location.pathname !== '/' && location.pathname !== '/wifi') {
+      navigate('/');
+    }
+  }, [currentRole, location.pathname, navigate]);
 
   const handleLogout = () => {
     setCurrentRole(null);

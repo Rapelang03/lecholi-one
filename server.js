@@ -111,12 +111,29 @@ let state = {
       id: 'TSP-00001',
       name: 'Thabo Ntsane',
       phone: '+266 5873 1332',
+      email: 'thabo@gmail.com',
+      address: 'Maseru West',
+      isTsePutsoa: true,
+      supporterNumber: '123456',
       points: 120,
       walletBalance: 150,
       tier: 'Silver',
       registeredAt: '2025-11-10',
       totalSpent: 6000,
       totalDonated: 300,
+      password: 'password123',
+      bankingDetails: {
+        type: 'M-Pesa',
+        mpesaNumber: '+266 5873 1332',
+        mpesaBalance: 1250,
+        ecocashNumber: '',
+        ecocashBalance: 0,
+        cardNumber: '',
+        cardExpiry: '',
+        cardCvv: '',
+        cardHolderName: '',
+        cardBalance: 0
+      },
       transactions: [
         { txId: 'TX-A001', date: '2026-04-15', amount: 250, donation: 12.5, points: 5, items: 'Lamb Chops, Jagger Bomb' },
         { txId: 'TX-A002', date: '2026-04-28', amount: 370, donation: 18.5, points: 7, items: 'Combo for 2' },
@@ -126,12 +143,29 @@ let state = {
       id: 'TSP-00002',
       name: 'Mpho Letsie',
       phone: '+266 6273 1332',
+      email: 'mpho@gmail.com',
+      address: 'Berea',
+      isTsePutsoa: false,
+      supporterNumber: '',
       points: 45,
       walletBalance: 50,
       tier: 'Bronze',
       registeredAt: '2026-01-05',
       totalSpent: 2250,
       totalDonated: 112.5,
+      password: 'password123',
+      bankingDetails: {
+        type: 'EcoCash',
+        mpesaNumber: '',
+        mpesaBalance: 0,
+        ecocashNumber: '+266 6273 1332',
+        ecocashBalance: 850,
+        cardNumber: '',
+        cardExpiry: '',
+        cardCvv: '',
+        cardHolderName: '',
+        cardBalance: 0
+      },
       transactions: [
         { txId: 'TX-B001', date: '2026-03-10', amount: 190, donation: 9.5, points: 3, items: 'Combo for 1' },
       ]
@@ -140,12 +174,29 @@ let state = {
       id: 'TSP-00003',
       name: "'Mare Mokoena",
       phone: '+266 5812 3456',
+      email: 'mare@gmail.com',
+      address: 'Leribe',
+      isTsePutsoa: true,
+      supporterNumber: '654321',
       points: 300,
       walletBalance: 300,
       tier: 'Gold',
       registeredAt: '2025-09-20',
       totalSpent: 15000,
       totalDonated: 750,
+      password: 'password123',
+      bankingDetails: {
+        type: 'Card',
+        mpesaNumber: '',
+        mpesaBalance: 0,
+        ecocashNumber: '',
+        ecocashBalance: 0,
+        cardNumber: '4000123456789010',
+        cardExpiry: '12/28',
+        cardCvv: '123',
+        cardHolderName: "'Mare Mokoena",
+        cardBalance: 5000
+      },
       transactions: [
         { txId: 'TX-C001', date: '2026-04-01', amount: 940, donation: 47, points: 18, items: 'Combo for 5' },
         { txId: 'TX-C002', date: '2026-04-22', amount: 560, donation: 28, points: 11, items: 'Combo for 3, Fat Bastard Merlot' },
@@ -165,16 +216,44 @@ let state = {
 // Full state snapshot (polled every second by all clients)
 app.get('/api/state', (req, res) => res.json(state));
 
-// Look up supporter by phone number (used at Cashier checkout)
+// Look up supporter by phone, email, TSP-ID, or Matlama supporter number (used at Cashier checkout and login)
 app.get('/api/supporter/lookup', (req, res) => {
-  const { phone } = req.query;
+  const queryVal = String(req.query.query || req.query.phone || '').trim().replace(/\s/g, '').toLowerCase();
+  
   const supporter = state.supporters.find(s =>
-    s.phone.replace(/\s/g, '') === String(phone).replace(/\s/g, '')
+    s.phone.replace(/\s/g, '').toLowerCase() === queryVal ||
+    s.id.replace(/\s/g, '').toLowerCase() === queryVal ||
+    (s.supporterNumber && s.supporterNumber.replace(/\s/g, '').toLowerCase() === queryVal) ||
+    (s.email && s.email.toLowerCase() === queryVal)
   );
   if (supporter) {
     res.json({ found: true, supporter });
   } else {
     res.json({ found: false });
+  }
+});
+
+// Supporter secure login verification
+app.post('/api/supporter/login', (req, res) => {
+  const { query, password } = req.body;
+  const searchStr = String(query || '').trim().replace(/\s/g, '').toLowerCase();
+  
+  const supporter = state.supporters.find(s =>
+    s.phone.replace(/\s/g, '').toLowerCase() === searchStr ||
+    s.id.replace(/\s/g, '').toLowerCase() === searchStr ||
+    (s.supporterNumber && s.supporterNumber.replace(/\s/g, '').toLowerCase() === searchStr) ||
+    (s.email && s.email.toLowerCase() === searchStr)
+  );
+  
+  if (supporter) {
+    const expectedPassword = supporter.password || 'password123';
+    if (password === expectedPassword) {
+      res.json({ success: true, supporter });
+    } else {
+      res.json({ success: false, message: 'Invalid password. Please try again.' });
+    }
+  } else {
+    res.json({ success: false, message: 'No customer account found with this credential.' });
   }
 });
 
@@ -202,6 +281,30 @@ app.post('/api/action', (req, res) => {
     case 'ADD_ORDER': {
       const newOrder = { ...payload, id: Math.random().toString(36).substr(2, 9), timestamp: new Date() };
       state.orders.push(newOrder);
+
+      // If a supporter is linked and payment method is selected
+      if (newOrder.supporterId && newOrder.paymentMethod) {
+        const supporter = state.supporters.find(s => s.id === newOrder.supporterId);
+        if (supporter) {
+          const totalAmt = newOrder.total;
+          if (newOrder.paymentMethod === 'Wallet') {
+            supporter.walletBalance = Math.max(0, (supporter.walletBalance || 0) - totalAmt);
+          } else if (newOrder.paymentMethod === 'M-Pesa') {
+            if (supporter.bankingDetails) {
+              supporter.bankingDetails.mpesaBalance = Math.max(0, (supporter.bankingDetails.mpesaBalance || 0) - totalAmt);
+            }
+          } else if (newOrder.paymentMethod === 'EcoCash') {
+            if (supporter.bankingDetails) {
+              supporter.bankingDetails.ecocashBalance = Math.max(0, (supporter.bankingDetails.ecocashBalance || 0) - totalAmt);
+            }
+          } else if (newOrder.paymentMethod === 'Card') {
+            if (supporter.bankingDetails) {
+              supporter.bankingDetails.cardBalance = Math.max(0, (supporter.bankingDetails.cardBalance || 0) - totalAmt);
+            }
+          }
+        }
+      }
+
       newOrder.items.forEach(item => {
         const menuItem = state.menu.find(m => m.id === item.id);
         if (menuItem) menuItem.stock -= item.quantity;
@@ -261,6 +364,12 @@ app.post('/api/action', (req, res) => {
         id: newId,
         name: payload.name,
         phone: payload.phone,
+        email: payload.email || '',
+        address: payload.address || '',
+        isTsePutsoa: !!payload.isTsePutsoa,
+        supporterNumber: payload.supporterNumber || '',
+        bankingDetails: payload.bankingDetails || { type: 'None' },
+        password: payload.password || 'password123',
         points: 0,
         walletBalance: 0,
         tier: 'Bronze',
@@ -290,7 +399,7 @@ app.post('/api/action', (req, res) => {
       const supporter = state.supporters.find(s => s.id === supporterId);
       if (supporter && supporter.points >= pointsToConvert) {
         supporter.points -= pointsToConvert;
-        const cashAmount = pointsToConvert * 1.0; // 1 point = M1.00
+        const cashAmount = pointsToConvert * 2.0; // 1 point = M2.00 (2 loti)
         supporter.walletBalance = (supporter.walletBalance || 0) + cashAmount;
         supporter.transactions.push({
           txId: `TX-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
@@ -312,6 +421,21 @@ app.post('/api/action', (req, res) => {
           break; // Insufficient funds
         }
         supporter.walletBalance -= total;
+      } else if (paymentMethod === 'M-Pesa') {
+        if (!supporter || !supporter.bankingDetails || (supporter.bankingDetails.mpesaBalance || 0) < total) {
+          break; // Insufficient funds
+        }
+        supporter.bankingDetails.mpesaBalance -= total;
+      } else if (paymentMethod === 'EcoCash') {
+        if (!supporter || !supporter.bankingDetails || (supporter.bankingDetails.ecocashBalance || 0) < total) {
+          break; // Insufficient funds
+        }
+        supporter.bankingDetails.ecocashBalance -= total;
+      } else if (paymentMethod === 'Card') {
+        if (!supporter || !supporter.bankingDetails || (supporter.bankingDetails.cardBalance || 0) < total) {
+          break; // Insufficient funds
+        }
+        supporter.bankingDetails.cardBalance -= total;
       }
 
       const newOrder = {
@@ -364,11 +488,34 @@ app.post('/api/action', (req, res) => {
       break;
     }
     case 'UPDATE_CUSTOMER_PROFILE': {
-      const { supporterId, name, phone } = payload;
+      const { supporterId, name, phone, email, address, bankingDetails } = payload;
       const supporter = state.supporters.find(s => s.id === supporterId);
       if (supporter) {
         supporter.name = name;
         supporter.phone = phone;
+        if (email !== undefined) supporter.email = email;
+        if (address !== undefined) supporter.address = address;
+        if (bankingDetails) {
+          supporter.bankingDetails = {
+            ...supporter.bankingDetails,
+            type: bankingDetails.type,
+            mpesaNumber: bankingDetails.mpesaNumber || '',
+            mpesaBalance: supporter.bankingDetails?.mpesaNumber === bankingDetails.mpesaNumber 
+              ? (supporter.bankingDetails?.mpesaBalance ?? 1500) 
+              : (bankingDetails.mpesaNumber ? 1500 : 0),
+            ecocashNumber: bankingDetails.ecocashNumber || '',
+            ecocashBalance: supporter.bankingDetails?.ecocashNumber === bankingDetails.ecocashNumber
+              ? (supporter.bankingDetails?.ecocashBalance ?? 800)
+              : (bankingDetails.ecocashNumber ? 800 : 0),
+            cardNumber: bankingDetails.cardNumber || '',
+            cardExpiry: bankingDetails.cardExpiry || '',
+            cardCvv: bankingDetails.cardCvv || '',
+            cardHolderName: bankingDetails.cardHolderName || '',
+            cardBalance: supporter.bankingDetails?.cardNumber === bankingDetails.cardNumber
+              ? (supporter.bankingDetails?.cardBalance ?? 4500)
+              : (bankingDetails.cardNumber ? 4500 : 0)
+          };
+        }
       }
       break;
     }

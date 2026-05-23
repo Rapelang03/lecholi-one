@@ -3,7 +3,7 @@ import { useStore } from '../store/useStore';
 import type { MenuItem, OrderItem, Supporter } from '../store/useStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  CreditCard, Gift, History, Award, Utensils, Phone, Search, User, 
+  CreditCard, Gift, History, Award, Utensils, Phone, Search, User, Mail,
   ArrowRightLeft, LogOut, MapPin, ShoppingCart, Plus, Minus, Check, 
   Trash2, X, Star, Sparkles, UserPlus, Info, CheckCircle2, Ticket
 } from 'lucide-react';
@@ -45,13 +45,22 @@ export const CustomerDashboard = () => {
   const [menuTab, setMenuTab] = useState<Category>('Combos');
   const [orderType, setOrderType] = useState<'Takeaway' | 'Dine-in'>('Dine-in');
   const [tableNumber, setTableNumber] = useState<number>(1);
-  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Wallet'>('Wallet');
+  const [paymentMethod, setPaymentMethod] = useState<'Cash' | 'Wallet' | 'M-Pesa' | 'EcoCash' | 'Card'>('Wallet');
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState<{ id: string } | null>(null);
 
   // Edit Profile State
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
+  const [editEmail, setEditEmail] = useState('');
+  const [editAddress, setEditAddress] = useState('Maseru');
+  const [editWalletType, setEditWalletType] = useState<'None' | 'M-Pesa' | 'EcoCash' | 'Card'>('None');
+  const [editMpesaNumber, setEditMpesaNumber] = useState('');
+  const [editEcocashNumber, setEditEcocashNumber] = useState('');
+  const [editCardNumber, setEditCardNumber] = useState('');
+  const [editCardHolder, setEditCardHolder] = useState('');
+  const [editCardExpiry, setEditCardExpiry] = useState('');
+  const [editCardCvv, setEditCardCvv] = useState('');
   const [profileSuccess, setProfileSuccess] = useState(false);
 
   // Find active customer object
@@ -60,8 +69,17 @@ export const CustomerDashboard = () => {
   // Sync profile details if customer loads
   useEffect(() => {
     if (customer) {
-      setEditName(customer.name);
-      setEditPhone(customer.phone);
+      setEditName(customer.name || '');
+      setEditPhone(customer.phone || '');
+      setEditEmail(customer.email || '');
+      setEditAddress(customer.address || 'Maseru');
+      setEditWalletType(customer.bankingDetails?.type || 'None');
+      setEditMpesaNumber(customer.bankingDetails?.mpesaNumber || '');
+      setEditEcocashNumber(customer.bankingDetails?.ecocashNumber || '');
+      setEditCardNumber(customer.bankingDetails?.cardNumber || '');
+      setEditCardHolder(customer.bankingDetails?.cardHolderName || '');
+      setEditCardExpiry(customer.bankingDetails?.cardExpiry || '');
+      setEditCardCvv(customer.bankingDetails?.cardCvv || '');
     }
   }, [customer]);
 
@@ -159,6 +177,39 @@ export const CustomerDashboard = () => {
       alert(`Insufficient wallet balance. You need M${grandTotal.toFixed(2)} but only have M${(customer.walletBalance || 0).toFixed(2)}.`);
       return;
     }
+    if (paymentMethod === 'M-Pesa') {
+      const balance = customer.bankingDetails?.mpesaBalance || 0;
+      if (!customer.bankingDetails?.mpesaNumber) {
+        alert("You haven't linked an M-Pesa account. Please link it in your Profile first.");
+        return;
+      }
+      if (balance < grandTotal) {
+        alert(`Insufficient M-Pesa balance. You need M${grandTotal.toFixed(2)} but only have M${balance.toFixed(2)}.`);
+        return;
+      }
+    }
+    if (paymentMethod === 'EcoCash') {
+      const balance = customer.bankingDetails?.ecocashBalance || 0;
+      if (!customer.bankingDetails?.ecocashNumber) {
+        alert("You haven't linked an EcoCash account. Please link it in your Profile first.");
+        return;
+      }
+      if (balance < grandTotal) {
+        alert(`Insufficient EcoCash balance. You need M${grandTotal.toFixed(2)} but only have M${balance.toFixed(2)}.`);
+        return;
+      }
+    }
+    if (paymentMethod === 'Card') {
+      const balance = customer.bankingDetails?.cardBalance || 0;
+      if (!customer.bankingDetails?.cardNumber) {
+        alert("You haven't linked a Credit Card. Please link it in your Profile first.");
+        return;
+      }
+      if (balance < grandTotal) {
+        alert(`Insufficient Card balance. You need M${grandTotal.toFixed(2)} but only have M${balance.toFixed(2)}.`);
+        return;
+      }
+    }
 
     setIsPlacingOrder(true);
     const orderItems: OrderItem[] = cart.map(c => ({
@@ -185,7 +236,25 @@ export const CustomerDashboard = () => {
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!customer || !editName.trim() || !editPhone.trim()) return;
-    await updateCustomerProfile(customer.id, editName.trim(), editPhone.trim());
+
+    const bankingDetails = {
+      type: editWalletType,
+      mpesaNumber: editWalletType === 'M-Pesa' ? editMpesaNumber : '',
+      ecocashNumber: editWalletType === 'EcoCash' ? editEcocashNumber : '',
+      cardNumber: editWalletType === 'Card' ? editCardNumber : '',
+      cardExpiry: editWalletType === 'Card' ? editCardExpiry : '',
+      cardCvv: editWalletType === 'Card' ? editCardCvv : '',
+      cardHolderName: editWalletType === 'Card' ? editCardHolder : '',
+    };
+
+    await updateCustomerProfile(
+      customer.id,
+      editName.trim(),
+      editPhone.trim(),
+      editEmail.trim(),
+      editAddress,
+      bankingDetails
+    );
     setProfileSuccess(true);
     setTimeout(() => setProfileSuccess(false), 3000);
   };
@@ -520,7 +589,7 @@ export const CustomerDashboard = () => {
                     <Info size={18} className="text-primary shrink-0 mt-0.5" />
                     <div>
                       <p className="font-bold text-foreground">Rule of conversion:</p>
-                      <p className="mt-1">Loyalty points can be converted directly into your Loti (M) cash wallet balance. The rate is exactly <span className="text-primary font-bold">1 Point = M1.00 Cash</span>. Converted cash can be used immediately to place orders!</p>
+                      <p className="mt-1">Loyalty points can be converted directly into your Loti (M) cash wallet balance. The rate is exactly <span className="text-primary font-bold">1 Point = M2.00 Cash</span>. Converted cash can be used immediately to place orders!</p>
                     </div>
                   </div>
 
@@ -559,7 +628,7 @@ export const CustomerDashboard = () => {
 
                     <div className="flex items-center justify-between border-t border-border pt-6">
                       <div className="text-sm font-bold text-muted-foreground">
-                        You will receive: <span className="text-emerald-400 font-mono text-lg font-black">M{pointsToConvert.toFixed(2)} Cash</span>
+                        You will receive: <span className="text-emerald-400 font-mono text-lg font-black">M{(pointsToConvert * 2).toFixed(2)} Cash</span>
                       </div>
                       <button
                         onClick={handleConversion}
@@ -804,28 +873,71 @@ export const CustomerDashboard = () => {
                         {/* Payment Selection */}
                         <div>
                           <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-2 font-black">Payment Method</label>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             <button
                               onClick={() => setPaymentMethod('Wallet')}
-                              className={`py-2.5 border rounded-xl transition-all flex flex-col items-center justify-center gap-1 ${
+                              className={`py-2 px-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
                                 paymentMethod === 'Wallet'
                                   ? 'bg-primary/10 border-primary text-primary shadow-[0_0_10px_rgba(212,175,55,0.15)]'
                                   : 'bg-background border-border text-muted-foreground'
                               }`}
                             >
-                              <span className="uppercase tracking-wider text-[9px]">Loyalty Wallet</span>
-                              <span className="text-[10px] font-mono opacity-80">(M{(customer.walletBalance || 0).toFixed(2)})</span>
+                              <span className="uppercase tracking-wider text-[8px] font-bold">Loyalty Wallet</span>
+                              <span className="text-[9px] font-mono opacity-80">M{(customer.walletBalance || 0).toFixed(2)}</span>
                             </button>
+
+                            <button
+                              onClick={() => setPaymentMethod('M-Pesa')}
+                              className={`py-2 px-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                paymentMethod === 'M-Pesa'
+                                  ? 'bg-red-500/10 border-red-500/50 text-red-400 shadow-[0_0_10px_rgba(239,68,68,0.15)]'
+                                  : 'bg-background border-border text-muted-foreground'
+                              }`}
+                            >
+                              <span className="uppercase tracking-wider text-[8px] font-bold">M-Pesa</span>
+                              <span className="text-[9px] font-mono opacity-80">
+                                {customer.bankingDetails?.mpesaNumber ? `M${(customer.bankingDetails.mpesaBalance || 0).toFixed(2)}` : 'Not Linked'}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => setPaymentMethod('EcoCash')}
+                              className={`py-2 px-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                paymentMethod === 'EcoCash'
+                                  ? 'bg-blue-500/10 border-blue-500/50 text-blue-400 shadow-[0_0_10px_rgba(59,130,246,0.15)]'
+                                  : 'bg-background border-border text-muted-foreground'
+                              }`}
+                            >
+                              <span className="uppercase tracking-wider text-[8px] font-bold">EcoCash</span>
+                              <span className="text-[9px] font-mono opacity-80">
+                                {customer.bankingDetails?.ecocashNumber ? `M${(customer.bankingDetails.ecocashBalance || 0).toFixed(2)}` : 'Not Linked'}
+                              </span>
+                            </button>
+
+                            <button
+                              onClick={() => setPaymentMethod('Card')}
+                              className={`py-2 px-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 ${
+                                paymentMethod === 'Card'
+                                  ? 'bg-purple-500/10 border-purple-500/50 text-purple-400 shadow-[0_0_10px_rgba(168,85,247,0.15)]'
+                                  : 'bg-background border-border text-muted-foreground'
+                              }`}
+                            >
+                              <span className="uppercase tracking-wider text-[8px] font-bold">Credit Card</span>
+                              <span className="text-[9px] font-mono opacity-80">
+                                {customer.bankingDetails?.cardNumber ? `M${(customer.bankingDetails.cardBalance || 0).toFixed(2)}` : 'Not Linked'}
+                              </span>
+                            </button>
+
                             <button
                               onClick={() => setPaymentMethod('Cash')}
-                              className={`py-2.5 border rounded-xl transition-all flex flex-col items-center justify-center gap-1 ${
+                              className={`py-2 px-3 border rounded-xl transition-all flex flex-col items-center justify-center gap-0.5 col-span-2 sm:col-span-1 ${
                                 paymentMethod === 'Cash'
                                   ? 'bg-[#1f1f1f] border-border text-foreground'
                                   : 'bg-background border-border text-muted-foreground'
                               }`}
                             >
-                              <span className="uppercase tracking-wider text-[9px]">Cash / Card</span>
-                              <span className="text-[10px] opacity-80">(Pay at Cashier)</span>
+                              <span className="uppercase tracking-wider text-[8px] font-bold">Cash / Card</span>
+                              <span className="text-[9px] opacity-80 font-sans">Pay at Cashier</span>
                             </button>
                           </div>
                         </div>
@@ -1014,33 +1126,192 @@ export const CustomerDashboard = () => {
                   </motion.div>
                 )}
 
-                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Display Name</label>
-                    <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
-                      <User size={18} className="text-muted-foreground" />
-                      <input
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        placeholder="Thabo Ntsane"
-                        required
-                        className="bg-transparent flex-1 py-3.5 text-foreground placeholder-muted-foreground outline-none"
-                      />
+                <form onSubmit={handleUpdateProfile} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-1.5 font-black">Full Name</label>
+                      <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
+                        <User size={16} className="text-muted-foreground" />
+                        <input
+                          value={editName}
+                          onChange={e => setEditName(e.target.value)}
+                          placeholder="Thabo Ntsane"
+                          required
+                          className="bg-transparent flex-1 py-2.5 text-xs text-foreground placeholder-muted-foreground outline-none"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-1.5 font-black">Phone Number</label>
+                      <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
+                        <Phone size={16} className="text-muted-foreground" />
+                        <input
+                          value={editPhone}
+                          onChange={e => setEditPhone(e.target.value)}
+                          placeholder="+266 5873 1332"
+                          required
+                          className="bg-transparent flex-1 py-2.5 text-xs text-foreground placeholder-muted-foreground outline-none font-mono"
+                        />
+                      </div>
                     </div>
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">Phone Number</label>
-                    <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
-                      <Phone size={18} className="text-muted-foreground" />
-                      <input
-                        value={editPhone}
-                        onChange={e => setEditPhone(e.target.value)}
-                        placeholder="+266 5873 1332"
-                        required
-                        className="bg-transparent flex-1 py-3.5 text-foreground placeholder-muted-foreground outline-none font-mono"
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-1.5 font-black">Email Address</label>
+                      <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
+                        <Mail size={16} className="text-muted-foreground" />
+                        <input
+                          value={editEmail}
+                          onChange={e => setEditEmail(e.target.value)}
+                          placeholder="thabo@gmail.com"
+                          className="bg-transparent flex-1 py-2.5 text-xs text-foreground placeholder-muted-foreground outline-none"
+                        />
+                      </div>
                     </div>
+
+                    <div>
+                      <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-1.5 font-black">Lesotho District</label>
+                      <div className="flex items-center gap-3 bg-background border border-border rounded-xl px-4 focus-within:border-primary/50 transition-all">
+                        <MapPin size={16} className="text-muted-foreground" />
+                        <select
+                          value={editAddress}
+                          onChange={e => setEditAddress(e.target.value)}
+                          className="bg-transparent flex-1 py-2.5 text-xs text-foreground outline-none border-none focus:ring-0"
+                        >
+                          {['Maseru', 'Leribe', 'Berea', 'Mafeteng', 'Mohale\'s Hoek', 'Quthing', 'Qacha\'s Nek', 'Mokhotlong', 'Butha-Buthe', 'Thaba-Tseka'].map(d => (
+                            <option key={d} value={d} className="bg-card text-foreground">{d}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Banking Details link */}
+                  <div className="bg-background border border-border rounded-2xl p-4 space-y-4">
+                    <div>
+                      <label className="block text-[10px] uppercase text-muted-foreground tracking-widest mb-2 font-black">Link Payment Wallet</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                        {['None', 'M-Pesa', 'EcoCash', 'Card'].map(type => (
+                          <button
+                            key={type}
+                            type="button"
+                            onClick={() => setEditWalletType(type as any)}
+                            className={`py-2 border rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                              editWalletType === type 
+                                ? 'bg-primary/10 border-primary text-primary'
+                                : 'bg-card border-border text-muted-foreground hover:border-primary/45'
+                            }`}
+                          >
+                            {type}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {editWalletType === 'M-Pesa' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">M-Pesa Phone Number</label>
+                          <input
+                            type="text"
+                            required
+                            value={editMpesaNumber}
+                            onChange={e => setEditMpesaNumber(e.target.value)}
+                            placeholder="+266 5873 1332"
+                            className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Wallet Balance (Simulated)</label>
+                          <div className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono">
+                            M{(customer.bankingDetails?.mpesaBalance ?? 1500).toFixed(2)}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {editWalletType === 'EcoCash' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">EcoCash Phone Number</label>
+                          <input
+                            type="text"
+                            required
+                            value={editEcocashNumber}
+                            onChange={e => setEditEcocashNumber(e.target.value)}
+                            placeholder="+266 6273 1332"
+                            className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Wallet Balance (Simulated)</label>
+                          <div className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono">
+                            M{(customer.bankingDetails?.ecocashBalance ?? 800).toFixed(2)}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {editWalletType === 'Card' && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Cardholder Name</label>
+                            <input
+                              type="text"
+                              required
+                              value={editCardHolder}
+                              onChange={e => setEditCardHolder(e.target.value)}
+                              placeholder="Thabo Ntsane"
+                              className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Credit Card Number</label>
+                            <input
+                              type="text"
+                              required
+                              value={editCardNumber}
+                              onChange={e => setEditCardNumber(e.target.value.replace(/\D/g, '').substring(0, 16))}
+                              placeholder="4000 1234 5678 9010"
+                              className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Expiry Date</label>
+                            <input
+                              type="text"
+                              required
+                              value={editCardExpiry}
+                              onChange={e => setEditCardExpiry(e.target.value)}
+                              placeholder="MM/YY"
+                              className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">CVV</label>
+                            <input
+                              type="password"
+                              required
+                              value={editCardCvv}
+                              onChange={e => setEditCardCvv(e.target.value.replace(/\D/g, '').substring(0, 3))}
+                              placeholder="123"
+                              className="w-full bg-card border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Wallet Balance (Simulated)</label>
+                            <div className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono">
+                              M{(customer.bankingDetails?.cardBalance ?? 4500).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
 
                   <button

@@ -28,7 +28,7 @@ export interface Order {
   isDonationApplied?: boolean;
   donationAmount?: number;
   supporterId?: string;
-  paymentMethod?: 'Cash' | 'Wallet';
+  paymentMethod?: 'Cash' | 'Card' | 'M-Pesa' | 'EcoCash' | 'Wallet';
 }
 
 export interface Table {
@@ -56,10 +56,29 @@ export interface SupporterTransaction {
   items: string;
 }
 
+export interface BankingDetails {
+  type: 'M-Pesa' | 'EcoCash' | 'Card' | 'None';
+  mpesaNumber?: string;
+  mpesaBalance?: number;
+  ecocashNumber?: string;
+  ecocashBalance?: number;
+  cardNumber?: string;
+  cardExpiry?: string;
+  cardCvv?: string;
+  cardHolderName?: string;
+  cardBalance?: number;
+}
+
 export interface Supporter {
   id: string;       // e.g. TSP-00001
   name: string;
   phone: string;
+  email?: string;
+  address?: string;
+  isTsePutsoa?: boolean;
+  supporterNumber?: string;
+  bankingDetails?: BankingDetails;
+  password?: string;
   points: number;
   walletBalance?: number;
   tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
@@ -100,8 +119,8 @@ interface StoreState {
   addDonation: (amount: number, purchaseAmount: number, supporterId?: string, items?: string) => Promise<void>;
   addEvent: (event: Omit<Event, 'id'>) => Promise<void>;
   addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<void>;
-  registerSupporter: (name: string, phone: string) => Promise<Supporter | null>;
-  lookupSupporter: (phone: string) => Promise<Supporter | null>;
+  registerSupporter: (nameOrPayload: any, phone?: string) => Promise<Supporter | null>;
+  lookupSupporter: (phoneOrQuery: string) => Promise<Supporter | null>;
   convertPointsToCash: (supporterId: string, points: number) => Promise<void>;
   placeCustomerOrder: (order: {
     supporterId: string;
@@ -109,10 +128,17 @@ interface StoreState {
     total: number;
     type: 'Takeaway' | 'Dine-in';
     tableNumber?: number;
-    paymentMethod: 'Cash' | 'Wallet';
+    paymentMethod: 'Cash' | 'Card' | 'M-Pesa' | 'EcoCash' | 'Wallet';
     donationAmount: number;
   }) => Promise<void>;
-  updateCustomerProfile: (supporterId: string, name: string, phone: string) => Promise<void>;
+  updateCustomerProfile: (
+    supporterId: string,
+    name: string,
+    phone: string,
+    email?: string,
+    address?: string,
+    bankingDetails?: BankingDetails
+  ) => Promise<void>;
 }
 
 const getApiUrl = () => {
@@ -145,15 +171,16 @@ export const useStore = create<StoreState>((set) => {
   }, 1500);
 
   return {
-    currentRole: (localStorage.getItem('lecholi-role') as Role) || null,
+    currentRole: (sessionStorage.getItem('lecholi-role') as Role) || null,
     setCurrentRole: (role) => {
-      localStorage.setItem('lecholi-role', role || '');
+      if (role) sessionStorage.setItem('lecholi-role', role);
+      else sessionStorage.removeItem('lecholi-role');
       set({ currentRole: role });
     },
-    activeCustomerId: localStorage.getItem('lecholi-customer-id') || null,
+    activeCustomerId: sessionStorage.getItem('lecholi-customer-id') || null,
     setActiveCustomerId: (id) => {
-      if (id) localStorage.setItem('lecholi-customer-id', id);
-      else localStorage.removeItem('lecholi-customer-id');
+      if (id) sessionStorage.setItem('lecholi-customer-id', id);
+      else sessionStorage.removeItem('lecholi-customer-id');
       set({ activeCustomerId: id });
     },
     menu: [],
@@ -209,12 +236,27 @@ export const useStore = create<StoreState>((set) => {
       if (newState) set(newState);
     },
 
-    registerSupporter: async (name, phone) => {
+    registerSupporter: async (nameOrPayload, phone) => {
+      let payload: any;
+      if (typeof nameOrPayload === 'string') {
+        payload = {
+          name: nameOrPayload,
+          phone: phone || '',
+          email: '',
+          address: '',
+          isTsePutsoa: false,
+          supporterNumber: '',
+          bankingDetails: { type: 'None' },
+          password: 'password123'
+        };
+      } else {
+        payload = nameOrPayload;
+      }
       try {
         const res = await fetch(`${getApiUrl()}/action`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ type: 'REGISTER_SUPPORTER', payload: { name, phone } })
+          body: JSON.stringify({ type: 'REGISTER_SUPPORTER', payload })
         });
         const data = await res.json();
         if (data) {
@@ -225,9 +267,9 @@ export const useStore = create<StoreState>((set) => {
       } catch (e) { return null; }
     },
 
-    lookupSupporter: async (phone) => {
+    lookupSupporter: async (phoneOrQuery) => {
       try {
-        const res = await fetch(`${getApiUrl()}/supporter/lookup?phone=${encodeURIComponent(phone)}`);
+        const res = await fetch(`${getApiUrl()}/supporter/lookup?query=${encodeURIComponent(phoneOrQuery)}`);
         const data = await res.json();
         return data.found ? data.supporter : null;
       } catch (e) { return null; }
@@ -241,8 +283,8 @@ export const useStore = create<StoreState>((set) => {
       const newState = await sendAction('PLACE_CUSTOMER_ORDER', order);
       if (newState) set(newState);
     },
-    updateCustomerProfile: async (supporterId, name, phone) => {
-      const newState = await sendAction('UPDATE_CUSTOMER_PROFILE', { supporterId, name, phone });
+    updateCustomerProfile: async (supporterId, name, phone, email, address, bankingDetails) => {
+      const newState = await sendAction('UPDATE_CUSTOMER_PROFILE', { supporterId, name, phone, email, address, bankingDetails });
       if (newState) set(newState);
     },
   };
