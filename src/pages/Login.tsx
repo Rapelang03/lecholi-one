@@ -282,11 +282,9 @@ export const Login = () => {
                       </span>
                     </div>
                     <div>
-                      <span className="text-[10px] text-emerald-500/60 uppercase block">Wallet Balance</span>
+                      <span className="text-[10px] text-emerald-500/60 uppercase block">Linked Wallet</span>
                       <span className="font-bold text-foreground">
-                        {successSupporter.bankingDetails?.type !== 'None' 
-                          ? `M${((successSupporter.bankingDetails?.mpesaBalance || 0) + (successSupporter.bankingDetails?.ecocashBalance || 0) + (successSupporter.bankingDetails?.cardBalance || 0)).toFixed(2)} (${successSupporter.bankingDetails?.type})`
-                          : 'M0.00'}
+                        {successSupporter.bankingDetails?.type || 'None'}
                       </span>
                     </div>
                     <div>
@@ -523,42 +521,30 @@ export const Login = () => {
                     </div>
 
                     {regWalletType === 'M-Pesa' && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
-                        <div>
-                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">M-Pesa Phone Number</label>
-                          <input
-                            type="text"
-                            required
-                            value={regMpesaNumber}
-                            onChange={e => setRegMpesaNumber(e.target.value)}
-                            placeholder="+266 5873 1332"
-                            className="w-full bg-background border border-border rounded-xl py-2 px-3 text-xs text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Linked Balance (Simulated)</label>
-                          <input type="text" readOnly value="M1500.00" className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono" />
-                        </div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="animate-fadeIn">
+                        <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">M-Pesa Phone Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={regMpesaNumber}
+                          onChange={e => setRegMpesaNumber(e.target.value)}
+                          placeholder="+266 5873 1332"
+                          className="w-full bg-background border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                        />
                       </motion.div>
                     )}
 
                     {regWalletType === 'EcoCash' && (
-                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-fadeIn">
-                        <div>
-                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">EcoCash Phone Number</label>
-                          <input
-                            type="text"
-                            required
-                            value={regEcocashNumber}
-                            onChange={e => setRegEcocashNumber(e.target.value)}
-                            placeholder="+266 6273 1332"
-                            className="w-full bg-background border border-border rounded-xl py-2 px-3 text-xs text-foreground"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Linked Balance (Simulated)</label>
-                          <input type="text" readOnly value="M850.00" className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono" />
-                        </div>
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="animate-fadeIn">
+                        <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">EcoCash Phone Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={regEcocashNumber}
+                          onChange={e => setRegEcocashNumber(e.target.value)}
+                          placeholder="+266 6273 1332"
+                          className="w-full bg-background border border-border rounded-xl py-2 px-3 text-xs text-foreground"
+                        />
                       </motion.div>
                     )}
 
@@ -588,7 +574,7 @@ export const Login = () => {
                             />
                           </div>
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Expiry Date</label>
                             <input
@@ -610,10 +596,6 @@ export const Login = () => {
                               placeholder="123"
                               className="w-full bg-background border border-border rounded-xl py-2 px-3 text-xs text-foreground"
                             />
-                          </div>
-                          <div>
-                            <label className="block text-[9px] uppercase text-muted-foreground tracking-widest mb-1">Linked Balance (Simulated)</label>
-                            <input type="text" readOnly value="M4500.00" className="w-full bg-card/50 border border-border/50 text-muted-foreground rounded-xl py-2 px-3 text-xs font-mono" />
                           </div>
                         </div>
                       </motion.div>
