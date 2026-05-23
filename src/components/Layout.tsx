@@ -4,15 +4,17 @@ import { useStore } from '../store/useStore';
 import { LogOut, UserCircle, Bell } from 'lucide-react';
 
 export const Layout = () => {
-  const { currentRole, setCurrentRole, tables } = useStore();
+  const { currentRole, setCurrentRole, activeCustomerId, setActiveCustomerId, supporters, tables } = useStore();
   const navigate = useNavigate();
 
   const handleLogout = () => {
     setCurrentRole(null);
+    setActiveCustomerId(null);
     navigate('/');
   };
 
   const pendingBills = tables.filter(t => t.needsBill).length;
+  const customer = activeCustomerId ? supporters.find(s => s.id === activeCustomerId) : null;
 
   return (
     <div className="min-h-screen bg-background font-sans text-foreground">
@@ -31,9 +33,17 @@ export const Layout = () => {
                   <span>{pendingBills} Pending Bill(s)</span>
                 </div>
               )}
+              {currentRole === 'Customer' && customer && (
+                <div className="flex items-center gap-2 bg-[#1e3a8a]/20 border border-blue-500/30 text-blue-300 px-3.5 py-1.5 rounded-full text-xs font-bold font-mono">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 animate-pulse mr-1"></span>
+                  <span>Wallet: M{(customer.walletBalance || 0).toFixed(2)}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2 text-primary">
                 <UserCircle size={22} />
-                <span className="font-bold tracking-wider hidden sm:block uppercase text-sm">{currentRole}</span>
+                <span className="font-bold tracking-wider hidden sm:block uppercase text-sm">
+                  {currentRole === 'Customer' && customer ? customer.name : currentRole}
+                </span>
               </div>
               <button
                 onClick={handleLogout}

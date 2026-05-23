@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type Role = 'Head Manager' | 'Restaurant Manager' | 'Butchery Manager' | 'Cashier' | 'Waiter' | 'Kitchen' | 'Events Manager' | 'Matlama Admin' | null;
+export type Role = 'Head Manager' | 'Restaurant Manager' | 'Butchery Manager' | 'Cashier' | 'Waiter' | 'Kitchen' | 'Events Manager' | 'Matlama Admin' | 'Customer' | null;
 
 export interface MenuItem {
   id: string;
@@ -28,6 +28,7 @@ export interface Order {
   isDonationApplied?: boolean;
   donationAmount?: number;
   supporterId?: string;
+  paymentMethod?: 'Cash' | 'Wallet';
 }
 
 export interface Table {
@@ -60,6 +61,7 @@ export interface Supporter {
   name: string;
   phone: string;
   points: number;
+  walletBalance?: number;
   tier: 'Bronze' | 'Silver' | 'Gold' | 'Platinum';
   registeredAt: string;
   totalSpent: number;
@@ -77,6 +79,8 @@ export interface Supplier {
 interface StoreState {
   currentRole: Role;
   setCurrentRole: (role: Role) => void;
+  activeCustomerId: string | null;
+  setActiveCustomerId: (id: string | null) => void;
   menu: MenuItem[];
   tables: Table[];
   orders: Order[];
@@ -98,6 +102,17 @@ interface StoreState {
   addSupplier: (supplier: Omit<Supplier, 'id'>) => Promise<void>;
   registerSupporter: (name: string, phone: string) => Promise<Supporter | null>;
   lookupSupporter: (phone: string) => Promise<Supporter | null>;
+  convertPointsToCash: (supporterId: string, points: number) => Promise<void>;
+  placeCustomerOrder: (order: {
+    supporterId: string;
+    items: OrderItem[];
+    total: number;
+    type: 'Takeaway' | 'Dine-in';
+    tableNumber?: number;
+    paymentMethod: 'Cash' | 'Wallet';
+    donationAmount: number;
+  }) => Promise<void>;
+  updateCustomerProfile: (supporterId: string, name: string, phone: string) => Promise<void>;
 }
 
 const getApiUrl = () => {
@@ -134,6 +149,12 @@ export const useStore = create<StoreState>((set) => {
     setCurrentRole: (role) => {
       localStorage.setItem('lecholi-role', role || '');
       set({ currentRole: role });
+    },
+    activeCustomerId: localStorage.getItem('lecholi-customer-id') || null,
+    setActiveCustomerId: (id) => {
+      if (id) localStorage.setItem('lecholi-customer-id', id);
+      else localStorage.removeItem('lecholi-customer-id');
+      set({ activeCustomerId: id });
     },
     menu: [],
     tables: [],
@@ -210,6 +231,19 @@ export const useStore = create<StoreState>((set) => {
         const data = await res.json();
         return data.found ? data.supporter : null;
       } catch (e) { return null; }
+    },
+
+    convertPointsToCash: async (supporterId, points) => {
+      const newState = await sendAction('CONVERT_POINTS_TO_CASH', { supporterId, pointsToConvert: points });
+      if (newState) set(newState);
+    },
+    placeCustomerOrder: async (order) => {
+      const newState = await sendAction('PLACE_CUSTOMER_ORDER', order);
+      if (newState) set(newState);
+    },
+    updateCustomerProfile: async (supporterId, name, phone) => {
+      const newState = await sendAction('UPDATE_CUSTOMER_PROFILE', { supporterId, name, phone });
+      if (newState) set(newState);
     },
   };
 });

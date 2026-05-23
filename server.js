@@ -112,6 +112,7 @@ let state = {
       name: 'Thabo Ntsane',
       phone: '+266 5873 1332',
       points: 120,
+      walletBalance: 150,
       tier: 'Silver',
       registeredAt: '2025-11-10',
       totalSpent: 6000,
@@ -126,6 +127,7 @@ let state = {
       name: 'Mpho Letsie',
       phone: '+266 6273 1332',
       points: 45,
+      walletBalance: 50,
       tier: 'Bronze',
       registeredAt: '2026-01-05',
       totalSpent: 2250,
@@ -139,6 +141,7 @@ let state = {
       name: "'Mare Mokoena",
       phone: '+266 5812 3456',
       points: 300,
+      walletBalance: 300,
       tier: 'Gold',
       registeredAt: '2025-09-20',
       totalSpent: 15000,
@@ -259,6 +262,7 @@ app.post('/api/action', (req, res) => {
         name: payload.name,
         phone: payload.phone,
         points: 0,
+        walletBalance: 0,
         tier: 'Bronze',
         registeredAt: new Date().toISOString().split('T')[0],
         totalSpent: 0,
@@ -281,6 +285,93 @@ app.post('/api/action', (req, res) => {
     case 'ADD_SUPPLIER':
       state.suppliers.push({ ...payload, id: Math.random().toString(36).substr(2, 9) });
       break;
+    case 'CONVERT_POINTS_TO_CASH': {
+      const { supporterId, pointsToConvert } = payload;
+      const supporter = state.supporters.find(s => s.id === supporterId);
+      if (supporter && supporter.points >= pointsToConvert) {
+        supporter.points -= pointsToConvert;
+        const cashAmount = pointsToConvert * 1.0; // 1 point = M1.00
+        supporter.walletBalance = (supporter.walletBalance || 0) + cashAmount;
+        supporter.transactions.push({
+          txId: `TX-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          date: new Date().toISOString().split('T')[0],
+          amount: 0,
+          donation: 0,
+          points: -pointsToConvert,
+          items: `Converted ${pointsToConvert} Points to M${cashAmount.toFixed(2)} Wallet Cash`,
+        });
+      }
+      break;
+    }
+    case 'PLACE_CUSTOMER_ORDER': {
+      const { supporterId, items, total, type, tableNumber, paymentMethod, donationAmount } = payload;
+      const supporter = state.supporters.find(s => s.id === supporterId);
+
+      if (paymentMethod === 'Wallet') {
+        if (!supporter || (supporter.walletBalance || 0) < total) {
+          break; // Insufficient funds
+        }
+        supporter.walletBalance -= total;
+      }
+
+      const newOrder = {
+        id: Math.random().toString(36).substr(2, 9),
+        items,
+        total,
+        status: 'Pending',
+        type,
+        tableNumber: type === 'Dine-in' ? tableNumber : undefined,
+        timestamp: new Date(),
+        supporterId,
+        paymentMethod,
+        isDonationApplied: true,
+        donationAmount: donationAmount || 0,
+      };
+
+      state.orders.push(newOrder);
+
+      // Update stock
+      items.forEach(item => {
+        const menuItem = state.menu.find(m => m.id === item.id);
+        if (menuItem) menuItem.stock -= item.quantity;
+      });
+
+      // Reward points
+      if (supporter) {
+        const earnedPoints = Math.floor(total / 50);
+        supporter.points += earnedPoints;
+        supporter.totalSpent = (supporter.totalSpent || 0) + total;
+        supporter.totalDonated = (supporter.totalDonated || 0) + (donationAmount || 0);
+        state.totalDonations += (donationAmount || 0);
+
+        // Update tier
+        if (supporter.points >= 500) supporter.tier = 'Platinum';
+        else if (supporter.points >= 200) supporter.tier = 'Gold';
+        else if (supporter.points >= 80) supporter.tier = 'Silver';
+        else supporter.tier = 'Bronze';
+
+        // Log transaction
+        const itemsDesc = items.map(c => `${c.quantity}x ${c.name}`).join(', ');
+        supporter.transactions.push({
+          txId: `TX-${Math.random().toString(36).substr(2, 6).toUpperCase()}`,
+          date: new Date().toISOString().split('T')[0],
+          amount: total,
+          donation: donationAmount || 0,
+          points: earnedPoints,
+          items: `${itemsDesc} (Paid via ${paymentMethod})`,
+        });
+      }
+      break;
+    }
+    case 'UPDATE_CUSTOMER_PROFILE': {
+      const { supporterId, name, phone } = payload;
+      const supporter = state.supporters.find(s => s.id === supporterId);
+      if (supporter) {
+        supporter.name = name;
+        supporter.phone = phone;
+      }
+      break;
+    }
   }
 
   res.json(state);

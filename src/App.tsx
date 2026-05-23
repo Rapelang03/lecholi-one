@@ -12,6 +12,7 @@ import { EventsManager } from './pages/EventsManager';
 import { SupporterCard } from './pages/SupporterCard';
 import { WiFiLanding } from './pages/WiFiLanding';
 import { MatlamaDashboard } from './pages/MatlamaDashboard';
+import { CustomerDashboard } from './pages/CustomerDashboard';
 
 function App() {
   return (
@@ -29,6 +30,7 @@ function App() {
           <Route path="events" element={<EventsManager />} />
           <Route path="supporter" element={<SupporterCard />} />
           <Route path="matlama" element={<MatlamaDashboard />} />
+          <Route path="customer" element={<CustomerDashboard />} />
         </Route>
         <Route path="/wifi" element={<WiFiLanding />} />
       </Routes>

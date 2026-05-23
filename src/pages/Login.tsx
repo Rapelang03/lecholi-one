@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import { Users, Shield, ChefHat, ShoppingCart, Store, PartyPopper, Trophy } from 'lucide-react';
 
 const roles: { title: Role; icon: React.FC<any>; description: string }[] = [
+  { title: 'Customer', icon: Users, description: 'Points, cash conversion, and menu ordering' },
   { title: 'Head Manager', icon: Shield, description: 'Overall system dashboard and reports' },
   { title: 'Restaurant Manager', icon: Store, description: 'Restaurant operations and stock' },
   { title: 'Butchery Manager', icon: Store, description: 'Meat stock and Shisa Nyama operations' },
@@ -22,6 +23,7 @@ export const Login = () => {
   const handleLogin = (role: Role) => {
     setCurrentRole(role);
     switch (role) {
+      case 'Customer': navigate('/customer'); break;
       case 'Head Manager': navigate('/head-manager'); break;
       case 'Restaurant Manager': navigate('/manager'); break;
       case 'Butchery Manager': navigate('/butchery-manager'); break;
